@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
 use eframe::egui;
+use rand::prelude::*;
 
 fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
@@ -37,21 +38,35 @@ fn board_size_name(bs: &Option<BoardSize>) -> &str {
 
 struct Vardoku {
     board_size: Option<BoardSize>,
-    start: bool
+    start: bool,
+    board: Option<Board>
 }
 
 type Board = Vec<Vec<Cell>>;
 
+#[derive(Clone)]
 struct Cell {
     value: Option<i32>,
-    notes: Vec<bool>
+    notes: Vec<bool>,
+    correct_value: i32
+}
+
+impl Default for Cell {
+    fn default() -> Self {
+        Self {
+            value: None,
+            notes: Vec::new(),
+            correct_value: 0
+        }
+    }
 }
 
 impl Vardoku {
     fn new() -> Self {
         Self {
             board_size: None,
-            start: false
+            start: false,
+            board: None
         }
     }
 
@@ -61,6 +76,47 @@ impl Vardoku {
 
     fn text(&self, s: impl Into<String>) -> egui::RichText {
         egui::RichText::new(s).color(egui::Color32::WHITE).size(14.0)
+    }
+
+    fn random_gen(&self, num: i32) -> i32 {
+        rand::thread_rng().gen_range(0..num)
+    }
+
+    fn setup_board(&mut self) {
+        let srn = match self.board_size {
+            Some(BoardSize::Four) => 4i32,
+            Some(BoardSize::Nine) => 9,
+            Some(BoardSize::Sixteen) => 16,
+            Some(BoardSize::TwentyFive) => 25,
+            None => panic!("Should not be happening")
+        };
+
+        self.board = Some(vec![vec![Default::default(); (srn * srn) as usize]; (srn * srn) as usize]);
+
+        for i in (0..(srn * srn)).step_by(srn as usize) {
+            let mut num: i32;
+            let mut nums_used: Vec<i32> = Vec::new();
+
+            for j in 0..srn {
+                for k in 0..srn {
+                    loop {
+                        num = self.random_gen(srn * srn);
+
+                        if nums_used.contains(&num) {
+                            break;
+                        }
+
+                        if let Some(board) = &mut self.board {
+                            board[(i + j) as usize][(i + k) as usize].correct_value = num;
+                            board[(i + j) as usize][(i + k) as usize].value = Some(num);
+                            nums_used.push(num);
+                        } else {
+                            panic!("This shouldn't happend");
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
