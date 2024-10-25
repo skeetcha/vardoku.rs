@@ -1,7 +1,8 @@
-use std::fmt::Debug;
+mod digit;
+mod board;
 
+use std::fmt::Debug;
 use eframe::egui;
-use rand::prelude::*;
 
 fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
@@ -38,35 +39,14 @@ fn board_size_name(bs: &Option<BoardSize>) -> &str {
 
 struct Vardoku {
     board_size: Option<BoardSize>,
-    start: bool,
-    board: Option<Board>
-}
-
-type Board = Vec<Vec<Cell>>;
-
-#[derive(Clone)]
-struct Cell {
-    value: Option<i32>,
-    notes: Vec<bool>,
-    correct_value: i32
-}
-
-impl Default for Cell {
-    fn default() -> Self {
-        Self {
-            value: None,
-            notes: Vec::new(),
-            correct_value: 0
-        }
-    }
+    start: bool
 }
 
 impl Vardoku {
     fn new() -> Self {
         Self {
             board_size: None,
-            start: false,
-            board: None
+            start: false
         }
     }
 
@@ -76,10 +56,6 @@ impl Vardoku {
 
     fn text(&self, s: impl Into<String>) -> egui::RichText {
         egui::RichText::new(s).color(egui::Color32::WHITE).size(14.0)
-    }
-
-    fn random_gen(&self, num: i32) -> i32 {
-        rand::thread_rng().gen_range(0..num)
     }
 }
 
