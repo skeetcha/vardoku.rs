@@ -1,8 +1,5 @@
-mod digit;
-mod board;
-
-use std::fmt::Debug;
 use eframe::egui;
+use sudokugen::BoardSize;
 
 fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
@@ -19,20 +16,11 @@ fn main() -> eframe::Result {
     )
 }
 
-#[derive(PartialEq, Debug)]
-enum BoardSize {
-    Four,
-    Nine,
-    Sixteen,
-    TwentyFive
-}
-
 fn board_size_name(bs: &Option<BoardSize>) -> &str {
     match bs {
-        Some(BoardSize::Four) => "4x4",
-        Some(BoardSize::Nine) => "9x9",
-        Some(BoardSize::Sixteen) => "16x16",
-        Some(BoardSize::TwentyFive) => "25x25",
+        Some(BoardSize::FourByFour) => "4x4",
+        Some(BoardSize::NineByNine) => "9x9",
+        Some(BoardSize::SixteenBySixteen) => "16x16",
         None => ""
     }
 }
@@ -72,10 +60,9 @@ impl eframe::App for Vardoku {
                     ui.horizontal(|ui| {
                         ui.add_space(340.0);
                         egui::ComboBox::from_id_salt("board_size").selected_text(board_size_name(&self.board_size)).show_ui(ui, |ui| {
-                            ui.selectable_value(&mut self.board_size, Some(BoardSize::Four), "4x4");
-                            ui.selectable_value(&mut self.board_size, Some(BoardSize::Nine), "9x9");
-                            ui.selectable_value(&mut self.board_size, Some(BoardSize::Sixteen), "16x16");
-                            ui.selectable_value(&mut self.board_size, Some(BoardSize::TwentyFive), "25x25");
+                            ui.selectable_value(&mut self.board_size, Some(BoardSize::FourByFour), "4x4");
+                            ui.selectable_value(&mut self.board_size, Some(BoardSize::NineByNine), "9x9");
+                            ui.selectable_value(&mut self.board_size, Some(BoardSize::SixteenBySixteen), "16x16");
                         });
     
                     });
