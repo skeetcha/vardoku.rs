@@ -54,7 +54,15 @@ struct Vardoku {
     difficulty: Option<Difficulty>,
     board: Option<Board>,
     notes: Option<Vec<Vec<(CellLoc, Vec<bool>)>>>,
-    max_digit: u8
+    max_digit: u8,
+    selected_cell: Option<CellLoc>,
+    input_method: InputMethod
+}
+
+#[derive(PartialEq)]
+enum InputMethod {
+    Value,
+    Candidate
 }
 
 impl Vardoku {
@@ -65,7 +73,9 @@ impl Vardoku {
             difficulty: None,
             board: None,
             notes: None,
-            max_digit: 0
+            max_digit: 0,
+            selected_cell: None,
+            input_method: InputMethod::Value
         }
     }
 
@@ -92,19 +102,26 @@ impl Vardoku {
         painter.line_segment([rect.left_top(), rect.left_bottom()], left_border);
         painter.line_segment([rect.right_top(), rect.right_bottom()], right_border);
     }
+
+    fn get_box_coords(&self, row: usize, col: usize) -> (usize, usize) {
+        (row / (self.max_digit as f32).sqrt() as usize, col / (self.max_digit as f32).sqrt() as usize)
+    }
 }
 
 impl eframe::App for Vardoku {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let selected_color = egui::Color32::from_rgba_unmultiplied(70, 0, 0, 200);
+        let highlighted_color = egui::Color32::from_black_alpha(200);
+        let default_color = egui::Color32::from_black_alpha(0);
         let cell_size = egui::vec2(15.0, 15.0);
         //ctx.set_debug_on_hover(true);
 
         egui::CentralPanel::default().show(ctx, |ui| {
             if self.start {
                 ctx.set_pixels_per_point(match self.board_size {
-                    Some(BoardSize::FourByFour) => 9.0,
-                    Some(BoardSize::NineByNine) => 4.5,
-                    Some(BoardSize::SixteenBySixteen) => 4.5,
+                    Some(BoardSize::FourByFour) => 8.0,
+                    Some(BoardSize::NineByNine) => 3.5,
+                    Some(BoardSize::SixteenBySixteen) => 3.5,
                     None => panic!("question mark")
                 });
                 let mut grid = egui_grid::GridBuilder::new();
@@ -118,26 +135,85 @@ impl eframe::App for Vardoku {
                         for j in 0..self.max_digit {
                             if let Some(val) = self.board.as_ref().unwrap().get_at(i as usize, j as usize) {
                                 grid.cell(|ui| {
-                                    let cell = ui.allocate_exact_size(cell_size, egui::Sense::hover());
+                                    let cell = ui.allocate_exact_size(cell_size, egui::Sense::click());
+                                    
+                                    let box_coords = self.get_box_coords(i as usize, j as usize);
+                                    let selected_box_coords = if let Some(cell) = &self.selected_cell {
+                                        self.get_box_coords(cell.line(), cell.col())
+                                    } else { (30, 30) };
+
+                                    let bg_color = match self.selected_cell {
+                                        Some(cell) => if cell == self.board.as_ref().unwrap().cell_at(i as usize, j as usize) {
+                                            selected_color
+                                        } else if (cell.col() == j as usize) || (cell.line() == i as usize) {
+                                            highlighted_color
+                                        } else if box_coords == selected_box_coords {
+                                            highlighted_color
+                                        } else {
+                                            default_color
+                                        },
+                                        None => default_color
+                                    };
 
                                     let cell_rect = cell.0.expand(0.5);
                                     let painter = ui.painter();
 
+                                    painter.rect_filled(cell_rect, 0.0, bg_color);
                                     painter.text(cell_rect.center(), egui::Align2::CENTER_CENTER, val.to_string(), egui::TextStyle::Body.resolve(&ui.ctx().style()), egui::Color32::WHITE);
                                     self.draw_cell_borders(painter, cell_rect, i as usize, j as usize);
+
+                                    if cell.1.clicked() {
+                                        self.selected_cell = Some(self.board.as_ref().unwrap().cell_at(i as usize, j as usize));
+                                    }
                                 });
                             } else {
                                 grid.cell(|ui| {
-                                    let cell = ui.allocate_exact_size(cell_size, egui::Sense::hover());
+                                    let cell = ui.allocate_exact_size(cell_size, egui::Sense::click());
+
+                                    let box_coords = self.get_box_coords(i as usize, j as usize);
+                                    let selected_box_coords = if let Some(cell) = &self.selected_cell {
+                                        self.get_box_coords(cell.line(), cell.col())
+                                    } else { (30, 30) };
+
+                                    let bg_color = match self.selected_cell {
+                                        Some(cell) => if cell == self.board.as_ref().unwrap().cell_at(i as usize, j as usize) {
+                                            selected_color
+                                        } else if (cell.col() == j as usize) || (cell.line() == i as usize) {
+                                            highlighted_color
+                                        } else if box_coords == selected_box_coords {
+                                            highlighted_color
+                                        } else {
+                                            default_color
+                                        },
+                                        None => default_color
+                                    };
 
                                     let cell_rect = cell.0.expand(0.5);
                                     let painter = ui.painter();
+                                    painter.rect_filled(cell_rect, 0.0, bg_color);
                                     self.draw_cell_borders(painter, cell_rect, i as usize, j as usize);
+
+                                    if cell.1.clicked() {
+                                        self.selected_cell = Some(self.board.as_ref().unwrap().cell_at(i as usize, j as usize));
+                                    }
                                 });
                             }
                         }
                     }
                 });
+
+                let value_button = egui::Button::new("Value");
+                let vb_resp = ui.add_enabled(self.input_method == InputMethod::Candidate, value_button);
+                let candidate_button = egui::Button::new("Candidate");
+                let cb_resp = ui.add_enabled(self.input_method == InputMethod::Value, candidate_button);
+
+                if vb_resp.clicked() {
+                    self.input_method = InputMethod::Value;
+                }
+
+                if cb_resp.clicked() {
+                    self.input_method = InputMethod::Candidate;
+                }
             } else {
                 ui.vertical_centered(|ui| {
                     ui.label(self.header("Vardoku"));
