@@ -53,10 +53,11 @@ struct Vardoku {
     start: bool,
     difficulty: Option<Difficulty>,
     board: Option<Board>,
-    notes: Option<Vec<Vec<(CellLoc, Vec<bool>)>>>,
+    notes: Option<Vec<Vec<Vec<bool>>>>,
     max_digit: u8,
     selected_cell: Option<CellLoc>,
-    input_method: InputMethod
+    input_method: InputMethod,
+    solution: Option<Board>
 }
 
 #[derive(PartialEq)]
@@ -75,7 +76,8 @@ impl Vardoku {
             notes: None,
             max_digit: 0,
             selected_cell: None,
-            input_method: InputMethod::Value
+            input_method: InputMethod::Value,
+            solution: None
         }
     }
 
@@ -114,7 +116,7 @@ impl eframe::App for Vardoku {
         let highlighted_color = egui::Color32::from_black_alpha(200);
         let default_color = egui::Color32::from_black_alpha(0);
         let cell_size = egui::vec2(15.0, 15.0);
-        //ctx.set_debug_on_hover(true);
+        ctx.set_debug_on_hover(true);
 
         egui::CentralPanel::default().show(ctx, |ui| {
             if self.start {
@@ -142,8 +144,8 @@ impl eframe::App for Vardoku {
                                         self.get_box_coords(cell.line(), cell.col())
                                     } else { (30, 30) };
 
-                                    let bg_color = match self.selected_cell {
-                                        Some(cell) => if cell == self.board.as_ref().unwrap().cell_at(i as usize, j as usize) {
+                                    let bg_color = match &self.selected_cell {
+                                        Some(cell) => if *cell == self.board.as_ref().unwrap().cell_at(i as usize, j as usize) {
                                             selected_color
                                         } else if (cell.col() == j as usize) || (cell.line() == i as usize) {
                                             highlighted_color
@@ -155,11 +157,24 @@ impl eframe::App for Vardoku {
                                         None => default_color
                                     };
 
+                                    let text_color = match &self.selected_cell {
+                                        Some(cell_loc) => if cell_loc.line() == i as usize && cell_loc.col() == j as usize {
+                                            if self.board.as_ref().unwrap().get_at(i as usize, j as usize).unwrap_or(30) == self.solution.as_ref().unwrap().get(cell_loc).unwrap_or(30) {
+                                                egui::Color32::WHITE
+                                            } else {
+                                                egui::Color32::RED
+                                            }
+                                        } else {
+                                            egui::Color32::WHITE
+                                        },
+                                        None => egui::Color32::WHITE
+                                    };
+
                                     let cell_rect = cell.0.expand(0.5);
                                     let painter = ui.painter();
 
                                     painter.rect_filled(cell_rect, 0.0, bg_color);
-                                    painter.text(cell_rect.center(), egui::Align2::CENTER_CENTER, val.to_string(), egui::TextStyle::Body.resolve(&ui.ctx().style()), egui::Color32::WHITE);
+                                    painter.text(cell_rect.center(), egui::Align2::CENTER_CENTER, val.to_string(), egui::TextStyle::Body.resolve(&ui.ctx().style()), text_color);
                                     self.draw_cell_borders(painter, cell_rect, i as usize, j as usize);
 
                                     if cell.1.clicked() {
@@ -188,8 +203,29 @@ impl eframe::App for Vardoku {
                                         None => default_color
                                     };
 
+                                    let mut note_grid = egui_grid::GridBuilder::new();
+
+                                    for _ in 0..((self.max_digit as f32).sqrt() as u8) {
+                                        note_grid = note_grid.new_row(Size::exact(15.0 / (self.max_digit as f32).sqrt())).cells(Size::exact(15.0 / (self.max_digit as f32).sqrt()), (self.max_digit as f32).sqrt() as i32).with_margin(egui::Margin::ZERO);
+                                    }
+
+                                    note_grid.show(ui, |mut note_grid| {
+                                        for k in 0..self.max_digit {
+                                            if *self.notes.as_ref().unwrap().get(i as usize).unwrap().get(j as usize).unwrap().get(k as usize).unwrap() {
+                                                note_grid.cell(|ui| {
+                                                    ui.allocate_exact_size(egui::vec2(15.0 / (self.max_digit as f32).sqrt(), 15.0 / (self.max_digit as f32).sqrt()), egui::Sense::hover());
+
+                                                    ui.label(egui::RichText::new((k + 1).to_string()).color(egui::Color32::WHITE).size(5.0));
+                                                });
+                                            } else {
+                                                note_grid.empty();
+                                            }
+                                        }
+                                    });
+
                                     let cell_rect = cell.0.expand(0.5);
                                     let painter = ui.painter();
+
                                     painter.rect_filled(cell_rect, 0.0, bg_color);
                                     self.draw_cell_borders(painter, cell_rect, i as usize, j as usize);
 
@@ -214,6 +250,61 @@ impl eframe::App for Vardoku {
                 if cb_resp.clicked() {
                     self.input_method = InputMethod::Candidate;
                 }
+
+                ui.input(|input| {
+                    if let None = &self.selected_cell {
+                        return;
+                    }
+
+                    let key_to_num = (0..self.max_digit).map(|val| {
+                        match val {
+                            0 => (egui::Key::Num1, 1),
+                            1 => (egui::Key::Num2, 2),
+                            2 => (egui::Key::Num3, 3),
+                            3 => (egui::Key::Num4, 4),
+                            4 => (egui::Key::Num5, 5),
+                            5 => (egui::Key::Num6, 6),
+                            6 => (egui::Key::Num7, 7),
+                            7 => (egui::Key::Num8, 8),
+                            8 => (egui::Key::Num9, 9),
+                            9 => (egui::Key::A, 10),
+                            10 => (egui::Key::B, 11),
+                            11 => (egui::Key::C, 12),
+                            12 => (egui::Key::D, 13),
+                            13 => (egui::Key::E, 14),
+                            14 => (egui::Key::F, 15),
+                            15 => (egui::Key::G, 16),
+                            _ => panic!("Not supported")
+                        }
+                    }).collect::<Vec<(egui::Key, u8)>>();
+
+                    for (key, num) in key_to_num {
+                        if num > self.max_digit {
+                            return;
+                        }
+
+                        if input.key_pressed(key) {
+                            if self.input_method == InputMethod::Value {
+                                let val = self.board.as_mut().unwrap().set(&self.selected_cell.unwrap(), num);
+
+                                if let Some(old_val) = val {
+                                    if old_val == num {
+                                        self.board.as_mut().unwrap().unset(&self.selected_cell.unwrap());
+                                    }
+                                }
+                            } else {
+                                let col = self.selected_cell.as_ref().unwrap().col();
+                                let row = self.selected_cell.as_ref().unwrap().line();
+
+                                let val = self.notes.as_mut().unwrap().get_mut(row).unwrap().get_mut(col).unwrap().get_mut(num as usize - 1).unwrap();
+
+                                *val = !*val;
+                            }
+                            
+                            break;
+                        }
+                    }
+                });
             } else {
                 ui.vertical_centered(|ui| {
                     ui.label(self.header("Vardoku"));
@@ -278,10 +369,11 @@ impl eframe::App for Vardoku {
                         println!("{:?} - Done\nSetting up game.", std::time::Instant::now().duration_since(first_instant));
 
                         self.board = Some(board.to_owned());
+                        self.solution = Some(puzzle.solution().to_owned());
                         self.start = true;
-                        self.notes = Some((0..(max_digit as usize)).map(|row| {
-                            (0..(max_digit as usize)).map(|col| {
-                                (board.cell_at(row, col), (0..max_digit).map(|_| false).collect())
+                        self.notes = Some((0..(max_digit as usize)).map(|_| {
+                            (0..(max_digit as usize)).map(|_| {
+                                (0..max_digit).map(|_| false).collect()
                             }).collect()
                         }).collect());
                         self.max_digit = max_digit;
