@@ -203,31 +203,33 @@ impl eframe::App for Vardoku {
                                         None => default_color
                                     };
 
+                                    let cell_rect = cell.0.expand(0.5);
+                                    let painter = ui.painter();
+
+                                    painter.rect_filled(cell_rect, 0.0, bg_color);
+                                    self.draw_cell_borders(painter, cell_rect, i as usize, j as usize);
+
                                     let mut note_grid = egui_grid::GridBuilder::new();
 
                                     for _ in 0..((self.max_digit as f32).sqrt() as u8) {
                                         note_grid = note_grid.new_row(Size::exact(15.0 / (self.max_digit as f32).sqrt())).cells(Size::exact(15.0 / (self.max_digit as f32).sqrt()), (self.max_digit as f32).sqrt() as i32).with_margin(egui::Margin::ZERO);
                                     }
 
-                                    note_grid.show(ui, |mut note_grid| {
-                                        for k in 0..self.max_digit {
-                                            if *self.notes.as_ref().unwrap().get(i as usize).unwrap().get(j as usize).unwrap().get(k as usize).unwrap() {
-                                                note_grid.cell(|ui| {
-                                                    ui.allocate_exact_size(egui::vec2(15.0 / (self.max_digit as f32).sqrt(), 15.0 / (self.max_digit as f32).sqrt()), egui::Sense::hover());
-
-                                                    ui.label(egui::RichText::new((k + 1).to_string()).color(egui::Color32::WHITE).size(5.0));
-                                                });
-                                            } else {
-                                                note_grid.empty();
+                                    ui.horizontal_centered(|ui| {
+                                        note_grid.spacing(0.0, 0.0).show(ui, |mut note_grid| {
+                                            for k in 0..self.max_digit {
+                                                if *self.notes.as_ref().unwrap().get(i as usize).unwrap().get(j as usize).unwrap().get(k as usize).unwrap() {
+                                                    note_grid.cell(|ui| {
+                                                        ui.allocate_exact_size(egui::vec2(15.0 / (self.max_digit as f32).sqrt(), 15.0 / (self.max_digit as f32).sqrt()), egui::Sense::hover());
+    
+                                                        ui.label(egui::RichText::new((k + 1).to_string()).color(egui::Color32::WHITE).size(5.0));
+                                                    });
+                                                } else {
+                                                    note_grid.empty();
+                                                }
                                             }
-                                        }
+                                        });
                                     });
-
-                                    let cell_rect = cell.0.expand(0.5);
-                                    let painter = ui.painter();
-
-                                    painter.rect_filled(cell_rect, 0.0, bg_color);
-                                    self.draw_cell_borders(painter, cell_rect, i as usize, j as usize);
 
                                     if cell.1.clicked() {
                                         self.selected_cell = Some(self.board.as_ref().unwrap().cell_at(i as usize, j as usize));
